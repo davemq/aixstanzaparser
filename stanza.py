@@ -4,31 +4,62 @@ from configparser import ConfigParser
 from configparser import DEFAULTSECT
 import re
 
+
 class AIXStanzaParser(ConfigParser):
-    """ Parse AIX stanza files """
+    """
+    Parse AIX stanza files. Modifies ConfigParser to handle unique
+    characteristics of AIX stanza files.
+    """
 
-    def __init__(self, defaults=None, dict_type=_default_dict,
-                 allow_no_value=False, *, delimiters=('='),
-                 comment_prefixes=('#', ';'), inline_comment_prefixes=None,
-                 strict=True, empty_lines_in_values=True,
-                 default_section=DEFAULTSECT,
-                 interpolation=_UNSET, converters=_UNSET,
-                 sectionBegin="", sectionEnd=":", keyValuePrefix="\t"):
+    def __init__(self, *args, **kwargs):
 
-        super().__init__(defaults, dict_type,
-                         allow_no_value, delimiters=delimiters,
-                         comment_prefixes=comment_prefixes,
-                         inline_comment_prefixes=inline_comment_prefixes,
-                         strict=strict, empty_lines_in_values=empty_lines_in_values,
-                         default_section=default_section,
-                         interpolation=interpolation, converters=converters)
-        self._sectionBegin   = sectionBegin
-        self._sectionEnd     = sectionEnd
-        self._keyValuePrefix = keyValuePrefix
-        self.SECTCRE         = re.compile(r"""
-        """ + self._sectionBegin + r"(?P<header>[^" +
-                                        self._sectionEnd + r"]*)" +
-                                        self._sectionEnd + r"""
-                                        """,
-                                        re.VERBOSE)
+        try:
+            # Grab parameters unique to AIXStanzaParser
+            self._sectionBegin = kwargs.pop("sectionBegin", "")
+            self._sectionEnd = kwargs.pop("sectionBegin", ":")
+            self._keyValuePrefix = kwargs.pop("keyValuePrefix", "\t")
 
+            # If delimiters is specified, use it, otherwise fill in with the
+            # default appropriate for AIX stanza files.
+            if "delimiters" not in kwargs:
+                kwargs["delimiters"] = "="
+
+            # AIX stanza options allow no values
+            if "allow_no_value" not in kwargs:
+                kwargs["allow_no_value"] = True
+
+        except KeyError:
+            pass
+
+        super().__init__(*args, **kwargs)
+        self.SECTCRE = re.compile(
+            r"""
+        """
+            + self._sectionBegin
+            + r"(?P<header>[^"
+            + self._sectionEnd
+            + r"]*)"
+            + self._sectionEnd
+            + r"""
+                                          """,
+            re.VERBOSE,
+        )
+
+    #
+    # Override _write_section() method. This presumes that
+    # RawConfigParser.write() calls self._write_section(). If that changes
+    # we'll want to override() the write() method instead.d We want to
+    # - preserve stanza style
+    # - add white space (_keyValuePrefix) before key-value pairs
+    #
+    def _write_section(self, fp, section_name, section_items, delimiter):
+        """Write a single section to the specified `fp'."""
+        fp.write(f"{self._sectionBegin}{section_name}{self._sectionEnd}\n")
+        for key, value in section_items:
+            value = self._interpolation.before_write(self, section_name, key, value)
+            if value is not None or not self._allow_no_value:
+                value = delimiter + str(value).replace("\n", "\n\t")
+            else:
+                value = ""
+            fp.write(f"{self._keyValuePrefix}{key}{value}\n")
+        fp.write("\n")
