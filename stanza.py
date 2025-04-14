@@ -24,10 +24,6 @@ class AIXStanzaParser(ConfigParser):
             if "delimiters" not in kwargs:
                 kwargs["delimiters"] = "="
 
-            # AIX stanza options allow no values
-            if "allow_no_value" not in kwargs:
-                kwargs["allow_no_value"] = True
-
         except KeyError:
             pass
 
