@@ -1,0 +1,13 @@
+general:
+	kext_check =
+
+disks:
+	nhdisk =
+	mhdisk =
+	tohdisk =
+	tshdisk =
+
+hmc:
+	lpar_id =
+	management_console =
+	user =
